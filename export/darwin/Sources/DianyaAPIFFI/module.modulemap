@@ -1,0 +1,6 @@
+module DianyaAPIFFI {
+    header "../../../../../include/dianyaapi_ffi.h"
+    link "dianyaapi_ffi"
+    export *
+}
+

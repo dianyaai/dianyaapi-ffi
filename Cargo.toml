@@ -1,0 +1,20 @@
+[package]
+name = "dianyaapi-ffi"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "dianyaapi_ffi"
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+common = { path = "../dianya_api_sdk/common" }
+transcribe = { path = "../dianya_api_sdk/transcribe" }
+
+stream-cancel = "0.8"
+tokio = { version = "1.48", features = ["rt-multi-thread", "macros", "time"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
+tungstenite = "0.28"
+
+[build-dependencies]
+cbindgen = "0.29"
