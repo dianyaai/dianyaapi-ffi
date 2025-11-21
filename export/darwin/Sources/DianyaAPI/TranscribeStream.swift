@@ -154,7 +154,7 @@ extension DianyaAPI {
         public func disconnect() {
             var handleToRelease: TranscribeStreamPtr?
             queue.sync {
-                guard let handle = self.handle else {
+                guard self.handle != nil else {
                     return
                 }
 
@@ -310,7 +310,7 @@ extension DianyaAPI {
         /// - Parameter onMessage: Callback closure called on main thread when message is received
         public func startReceiving(onMessage: @escaping (String) -> Void) {
             queue.async {
-                guard let handle = self.handle else {
+                guard self.handle != nil else {
                     DispatchQueue.main.async {
                         // Callback with error handling would be better, but keeping simple for now
                     }
