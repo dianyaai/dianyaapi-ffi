@@ -136,7 +136,9 @@ jobs:
           DIST_LABEL: ${{ matrix.label }}
         run: |
           set -euo pipefail
-          ARTIFACT_DIR="$GITHUB_WORKSPACE/artifacts"
+          # Change to workspace directory to ensure consistent paths
+          cd "$GITHUB_WORKSPACE"
+          ARTIFACT_DIR="artifacts"
           mkdir -p "$ARTIFACT_DIR"
 
           C_DIR="$RUNNER_TEMP/c_${DIST_LABEL}"
@@ -153,7 +155,7 @@ jobs:
           GO_TMP="$RUNNER_TEMP/go_${DIST_LABEL}"
           rm -rf "$GO_TMP"
           mkdir -p "$GO_TMP"
-          rsync -av --exclude='dist' --exclude='build' "$GITHUB_WORKSPACE/export/go-lang/" "$GO_TMP/"
+          rsync -av --exclude='dist' --exclude='build' "export/go-lang/" "$GO_TMP/"
 
           GO_DIST_DIR="$GO_TMP/dist/${DIST_LABEL}"
           mkdir -p "$GO_DIST_DIR"
