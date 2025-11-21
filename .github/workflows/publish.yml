@@ -1,0 +1,196 @@
+name: Publish
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  HEADER_FILE: include/dianyaapi_ffi.h
+
+jobs:
+  darwin:
+    name: Darwin SDKs
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Build XCFramework
+        run: ./export/scripts/build-xcframework.sh
+
+      - name: Package XCFramework distribution
+        run: |
+          set -euo pipefail
+          ARTIFACT_DIR="$GITHUB_WORKSPACE/artifacts"
+          mkdir -p "$ARTIFACT_DIR"
+          cd export/darwin/xcframework
+          zip -r "$ARTIFACT_DIR/dianyaapi-darwin-xcframework.zip" DianyaAPI-Distribution
+
+      - name: Package macOS C/Go artifacts
+        run: |
+          set -euo pipefail
+          ARTIFACT_DIR="$GITHUB_WORKSPACE/artifacts"
+          mkdir -p "$ARTIFACT_DIR"
+
+          for target in aarch64-apple-darwin x86_64-apple-darwin; do
+            if [ "$target" = "aarch64-apple-darwin" ]; then
+              label="macos-arm64"
+            else
+              label="macos-x86_64"
+            fi
+
+            C_DIR="$RUNNER_TEMP/c_${label}"
+            rm -rf "$C_DIR"
+            mkdir -p "$C_DIR"
+            cp "$HEADER_FILE" "$C_DIR/"
+            for lib in libdianyaapi_ffi.a libdianyaapi_ffi.dylib; do
+              if [ -f "target/${target}/release/${lib}" ]; then
+                cp "target/${target}/release/${lib}" "$C_DIR/"
+              fi
+            done
+            tar -czf "$ARTIFACT_DIR/dianyaapi-c-${label}.tar.gz" -C "$C_DIR" .
+
+            GO_TMP="$RUNNER_TEMP/go_${label}"
+            export GO_TMP
+            python - <<'PY'
+import os
+import shutil
+
+dst = os.environ["GO_TMP"]
+src = os.path.join(os.environ["GITHUB_WORKSPACE"], "export", "go-lang")
+shutil.rmtree(dst, ignore_errors=True)
+ignore = shutil.ignore_patterns("dist", "build")
+shutil.copytree(src, dst, ignore=ignore)
+PY
+
+            GO_DIST_DIR="$GO_TMP/dist/${label}"
+            mkdir -p "$GO_DIST_DIR"
+            cp "$HEADER_FILE" "$GO_DIST_DIR/"
+            for lib in libdianyaapi_ffi.a libdianyaapi_ffi.dylib; do
+              if [ -f "target/${target}/release/${lib}" ]; then
+                cp "target/${target}/release/${lib}" "$GO_DIST_DIR/"
+              fi
+            done
+            tar -czf "$ARTIFACT_DIR/dianyaapi-go-${label}.tar.gz" -C "$GO_TMP" .
+          done
+
+      - name: Upload Darwin artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: darwin-artifacts
+          path: artifacts/*
+
+  cgo:
+    name: C/Go ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            label: linux-x86_64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            label: windows-x86_64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build ${{ matrix.label }} libraries
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          cargo build --release --target "$TARGET" -p dianyaapi-ffi
+
+      - name: Package ${{ matrix.label }} artifacts
+        env:
+          TARGET: ${{ matrix.target }}
+          DIST_LABEL: ${{ matrix.label }}
+        run: |
+          set -euo pipefail
+          ARTIFACT_DIR="$GITHUB_WORKSPACE/artifacts"
+          mkdir -p "$ARTIFACT_DIR"
+
+          C_DIR="$RUNNER_TEMP/c_${DIST_LABEL}"
+          rm -rf "$C_DIR"
+          mkdir -p "$C_DIR"
+          cp "$HEADER_FILE" "$C_DIR/"
+          for lib in libdianyaapi_ffi.a libdianyaapi_ffi.dylib libdianyaapi_ffi.so dianyaapi_ffi.dll dianyaapi_ffi.lib dianyaapi_ffi.dll.lib; do
+            if [ -f "target/${TARGET}/release/${lib}" ]; then
+              cp "target/${TARGET}/release/${lib}" "$C_DIR/"
+            fi
+          done
+          tar -czf "$ARTIFACT_DIR/dianyaapi-c-${DIST_LABEL}.tar.gz" -C "$C_DIR" .
+
+          GO_TMP="$RUNNER_TEMP/go_${DIST_LABEL}"
+          export GO_TMP
+          python - <<'PY'
+import os
+import shutil
+
+dst = os.environ["GO_TMP"]
+src = os.path.join(os.environ["GITHUB_WORKSPACE"], "export", "go-lang")
+shutil.rmtree(dst, ignore_errors=True)
+ignore = shutil.ignore_patterns("dist", "build")
+shutil.copytree(src, dst, ignore=ignore)
+PY
+
+          GO_DIST_DIR="$GO_TMP/dist/${DIST_LABEL}"
+          mkdir -p "$GO_DIST_DIR"
+          cp "$HEADER_FILE" "$GO_DIST_DIR/"
+          for lib in libdianyaapi_ffi.a libdianyaapi_ffi.dylib libdianyaapi_ffi.so dianyaapi_ffi.dll dianyaapi_ffi.lib dianyaapi_ffi.dll.lib; do
+            if [ -f "target/${TARGET}/release/${lib}" ]; then
+              cp "target/${TARGET}/release/${lib}" "$GO_DIST_DIR/"
+            fi
+          done
+          tar -czf "$ARTIFACT_DIR/dianyaapi-go-${DIST_LABEL}.tar.gz" -C "$GO_TMP" .
+
+      - name: Upload ${{ matrix.label }} artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.label }}-artifacts
+          path: artifacts/*
+
+  release:
+    name: Publish Release
+    needs:
+      - darwin
+      - cgo
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release_assets
+          merge-multiple: true
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          files: |
+            release_assets/**/*.tar.gz
+            release_assets/**/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
