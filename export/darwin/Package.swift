@@ -20,7 +20,10 @@ let package = Package(
         .target(
             name: "DianyaAPI",
             dependencies: ["DianyaAPIFFI"],
-            path: "Sources/DianyaAPI"
+            path: "Sources/DianyaAPI",
+            cSettings: [
+                .headerSearchPath("../include"),
+            ]
         ),
         .binaryTarget(
             name: "DianyaAPIFFI",

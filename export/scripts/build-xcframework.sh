@@ -238,8 +238,8 @@ cp -R "$DARWIN_DIR/Sources" "$DIST_DIR/"
 # Copy as dianyaapi_ffi_original.h to avoid conflict with bridge header
 # This ensures the header file is available when distributing the package
 echo -e "${YELLOW}  - Copying header file to Sources...${NC}"
-cp "$HEADER_FILE" "$DIST_DIR/Sources/DianyaAPI/dianyaapi_ffi_original.h"
-echo -e "${GREEN}    ✓ Header file copied: $DIST_DIR/Sources/DianyaAPI/dianyaapi_ffi_original.h${NC}"
+cp "$HEADER_FILE" "$DIST_DIR/Sources/include/dianyaapi_ffi_original.h"
+echo -e "${GREEN}    ✓ Header file copied: $DIST_DIR/Sources/include/dianyaapi_ffi_original.h${NC}"
 
 # 3. Check for and copy LICENSE file if exists
 if [ -f "$PROJECT_ROOT/LICENSE" ]; then

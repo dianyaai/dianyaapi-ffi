@@ -15,7 +15,7 @@
     #include "dianyaapi_ffi_original.h"
 #else
     // In development, use relative path
-    #include "../../../../../include/dianyaapi_ffi.h"
+    #include "../../../../include/dianyaapi_ffi.h"
 #endif
 
 #endif /* dianyaapi_ffi_h */
