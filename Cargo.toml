@@ -8,8 +8,8 @@ name = "dianyaapi_ffi"
 crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
-common = { path = "../dianya_api_sdk/common" }
-transcribe = { path = "../dianya_api_sdk/transcribe" }
+common = { git = "https://github.com/dianyaai/dianyaapi_sdk.git", package = "common" }
+transcribe = { git = "https://github.com/dianyaai/dianyaapi_sdk.git", package = "transcribe" }
 
 stream-cancel = "0.8"
 tokio = { version = "1.48", features = ["rt-multi-thread", "macros", "time"] }

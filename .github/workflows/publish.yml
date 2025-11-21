@@ -3,7 +3,7 @@ name: Publish
 on:
   push:
     tags:
-      - "v*"
+      - 'v[0-9]+.[0-9]+.[0-9]+'
 
 permissions:
   contents: write
@@ -23,12 +23,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Configure git for Cargo
+        run: |
+          git config --global url."https://x-access-token:${{ secrets.DIANYA_TOKEN }}@github.com/".insteadOf "https://github.com/"
+          git config --global credential.helper store
+          echo "https://x-access-token:${{ secrets.DIANYA_TOKEN }}@github.com" > ~/.git-credentials
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-ios,aarch64-apple-ios-sim,aarch64-apple-darwin,x86_64-apple-darwin
 
       - name: Build XCFramework
+        env:
+          CARGO_NET_GIT_FETCH_WITH_CLI: true
+          GIT_TERMINAL_PROMPT: 0
         run: ./export/scripts/build-xcframework.sh
 
       - name: Package XCFramework distribution
@@ -64,17 +73,9 @@ jobs:
             tar -czf "$ARTIFACT_DIR/dianyaapi-c-${label}.tar.gz" -C "$C_DIR" .
 
             GO_TMP="$RUNNER_TEMP/go_${label}"
-            export GO_TMP
-            python - <<'PY'
-import os
-import shutil
-
-dst = os.environ["GO_TMP"]
-src = os.path.join(os.environ["GITHUB_WORKSPACE"], "export", "go-lang")
-shutil.rmtree(dst, ignore_errors=True)
-ignore = shutil.ignore_patterns("dist", "build")
-shutil.copytree(src, dst, ignore=ignore)
-PY
+            rm -rf "$GO_TMP"
+            mkdir -p "$GO_TMP"
+            rsync -av --exclude='dist' --exclude='build' "$GITHUB_WORKSPACE/export/go-lang/" "$GO_TMP/"
 
             GO_DIST_DIR="$GO_TMP/dist/${label}"
             mkdir -p "$GO_DIST_DIR"
@@ -109,6 +110,12 @@ PY
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Configure git for Cargo
+        run: |
+          git config --global url."https://x-access-token:${{ secrets.DIANYA_TOKEN }}@github.com/".insteadOf "https://github.com/"
+          git config --global credential.helper store
+          echo "https://x-access-token:${{ secrets.DIANYA_TOKEN }}@github.com" > ~/.git-credentials
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -117,6 +124,8 @@ PY
       - name: Build ${{ matrix.label }} libraries
         env:
           TARGET: ${{ matrix.target }}
+          CARGO_NET_GIT_FETCH_WITH_CLI: true
+          GIT_TERMINAL_PROMPT: 0
         run: |
           set -euo pipefail
           cargo build --release --target "$TARGET" -p dianyaapi-ffi
@@ -142,17 +151,9 @@ PY
           tar -czf "$ARTIFACT_DIR/dianyaapi-c-${DIST_LABEL}.tar.gz" -C "$C_DIR" .
 
           GO_TMP="$RUNNER_TEMP/go_${DIST_LABEL}"
-          export GO_TMP
-          python - <<'PY'
-import os
-import shutil
-
-dst = os.environ["GO_TMP"]
-src = os.path.join(os.environ["GITHUB_WORKSPACE"], "export", "go-lang")
-shutil.rmtree(dst, ignore_errors=True)
-ignore = shutil.ignore_patterns("dist", "build")
-shutil.copytree(src, dst, ignore=ignore)
-PY
+          rm -rf "$GO_TMP"
+          mkdir -p "$GO_TMP"
+          rsync -av --exclude='dist' --exclude='build' "$GITHUB_WORKSPACE/export/go-lang/" "$GO_TMP/"
 
           GO_DIST_DIR="$GO_TMP/dist/${DIST_LABEL}"
           mkdir -p "$GO_DIST_DIR"
@@ -193,4 +194,3 @@ PY
             release_assets/**/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
