@@ -75,7 +75,10 @@ jobs:
             GO_TMP="$RUNNER_TEMP/go_${label}"
             rm -rf "$GO_TMP"
             mkdir -p "$GO_TMP"
-            rsync -av --exclude='dist' --exclude='build' "$GITHUB_WORKSPACE/export/go-lang/" "$GO_TMP/"
+            # Copy go-lang directory excluding dist and build directories
+            # Use cp -r then remove excluded dirs for cross-platform compatibility
+            cp -r "$GITHUB_WORKSPACE/export/go-lang/"* "$GO_TMP/" 2>/dev/null || cp -r "$GITHUB_WORKSPACE/export/go-lang/." "$GO_TMP/"
+            rm -rf "$GO_TMP/dist" "$GO_TMP/build"
 
             GO_DIST_DIR="$GO_TMP/dist/${label}"
             mkdir -p "$GO_DIST_DIR"
@@ -155,7 +158,10 @@ jobs:
           GO_TMP="$RUNNER_TEMP/go_${DIST_LABEL}"
           rm -rf "$GO_TMP"
           mkdir -p "$GO_TMP"
-          rsync -av --exclude='dist' --exclude='build' "export/go-lang/" "$GO_TMP/"
+          # Copy go-lang directory excluding dist and build directories
+          # Use cp -r then remove excluded dirs for cross-platform compatibility (rsync not available on Windows)
+          cp -r "export/go-lang/"* "$GO_TMP/" 2>/dev/null || cp -r "export/go-lang/." "$GO_TMP/"
+          rm -rf "$GO_TMP/dist" "$GO_TMP/build"
 
           GO_DIST_DIR="$GO_TMP/dist/${DIST_LABEL}"
           mkdir -p "$GO_DIST_DIR"
