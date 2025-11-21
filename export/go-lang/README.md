@@ -18,11 +18,21 @@
 ### 构建要求
 
 - Go >= 1.21
-- Rust toolchain（用于构建 `dianyaapi-ffi`）
+- Rust toolchain（仅仓库维护者 / CI 使用；普通使用者如果只消费预编译库可不安装）
 - CMake >= 3.16
 - 平台对应的 C/C++ 工具链（Linux: gcc/clang，macOS: Xcode CLI，Windows: MSVC 或 MinGW）
 
-### 快速构建
+### 获取预编译库与集成
+
+核心 FFI 库由 GitHub Actions 构建并提供预编译产物。推荐做法是：
+
+1. 从仓库的 GitHub Actions / Release 页面下载与你平台对应的 `dist/<platform>` 压缩包；
+2. 解压后，确保其中包含：
+   - `libdianyaapi_ffi.*`（动态/静态库）
+   - `dianyaapi_ffi.h` 头文件
+3. 将 `dist/<platform>` 放到你工程约定的位置，并确保 `#cgo CFLAGS` / `#cgo LDFLAGS` 能找到这些头文件与库。
+
+对于仓库维护者或在 CI 中从源码构建时，可以使用本目录下的 `CMakeLists.txt` 串联完整流程，例如：
 
 ```bash
 cd dianyaapi-ffi/export/go-lang
@@ -31,11 +41,11 @@ cmake --build build
 ```
 
 上述命令会依次执行：
-1. `cargo build -p dianyaapi-ffi --release`（在仓库根目录执行，生成 `libdianyaapi_ffi`）
-2. 将头文件和可用的 `.so/.dylib/.dll/.a/.lib` 复制到 `dist/<platform>`
-3. `go build ./...` 验证 Go 封装可成功编译
+1. 构建 `dianyaapi-ffi` FFI 动态/静态库；
+2. 将头文件和可用的 `.so/.dylib/.dll/.a/.lib` 复制到 `dist/<platform>`；
+3. 通过 `go build ./...` 验证 Go 封装可成功编译。
 
-构建完成后，可将 `dist/<platform>` 与 Go 源码一起分发给调用者，使其无需再次运行 Cargo。
+对普通使用者而言，通常只需要使用 CI 生成好的 `dist/<platform>`，无需本地安装 Rust 或显式执行构建命令。
 
 ### 运行/链接提示
 
@@ -97,7 +107,7 @@ func main() {
 
 ### 常见问题
 
-1. **找不到 `libdianyaapi_ffi`**：确认已运行 `cargo build --release` 或执行了 CMake 构建；同时设置好系统的库搜索路径。
+1. **找不到 `libdianyaapi_ffi`**：确认已经获取了与你平台匹配的预编译 `libdianyaapi_ffi`（例如来自 GitHub Actions / Release），或在 CI / 本地完整执行了 CMake 构建流程；同时设置好系统的库搜索路径。
 2. **Windows 下链接错误**：确保 `clang-cl` 或 `MSVC` 可用，并把 `dianyaapi_ffi.dll` 与 `dianyaapi_ffi.lib` 一起放入 `dist/Windows`。
 3. **Go 构建时头文件不可见**：确认 `#cgo CFLAGS` 中 `-I${SRCDIR}/../../include` 对应的目录存在，且 `dianyaapi_ffi.h` 已复制。
 
