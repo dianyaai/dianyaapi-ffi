@@ -3,6 +3,7 @@
 //  example
 //
 //  Created by Jesse on 2025/11/19.
+//  支持 iOS 和 macOS 的统一音频录制实现
 //
 
 import AVFoundation
@@ -28,7 +29,7 @@ class AudioRecorder: ObservableObject {
     
     func requestMicrophonePermission() {
         #if os(iOS)
-        // iOS 16.7 兼容：使用 AVAudioSession
+        // iOS: 使用 AVAudioSession
         let audioSession = AVAudioSession.sharedInstance()
         audioSession.requestRecordPermission { [weak self] granted in
             DispatchQueue.main.async {
@@ -38,20 +39,55 @@ class AudioRecorder: ObservableObject {
                 }
             }
         }
-        #else
-        // macOS: 使用 AVAudioApplication (macOS 14.0+)
-        if #available(macOS 14.0, *) {
-            AVAudioApplication.requestRecordPermission { [weak self] granted in
-                DispatchQueue.main.async {
-                    self?.hasPermission = granted
-                    if !granted {
-                        print("⚠️ 麦克风权限未授予")
-                    }
+        #elseif os(macOS)
+        // macOS: 使用 AVCaptureDevice
+        AVCaptureDevice.requestAccess(for: .audio) { [weak self] granted in
+            DispatchQueue.main.async {
+                self?.hasPermission = granted
+                if !granted {
+                    print("⚠️ 麦克风权限未授予")
                 }
             }
-        } else {
-            // macOS 13 及以下：直接设置为 true（macOS 通常不需要权限）
-            self.hasPermission = true
+        }
+        #endif
+    }
+    
+    func ensureMicrophonePermissionStatus() {
+        #if os(iOS)
+        let audioSession = AVAudioSession.sharedInstance()
+        switch audioSession.recordPermission {
+        case .granted:
+            DispatchQueue.main.async {
+                self.hasPermission = true
+            }
+        case .undetermined:
+            requestMicrophonePermission()
+        case .denied:
+            DispatchQueue.main.async {
+                self.hasPermission = false
+            }
+        @unknown default:
+            DispatchQueue.main.async {
+                self.hasPermission = false
+            }
+        }
+        #elseif os(macOS)
+        let status = AVCaptureDevice.authorizationStatus(for: .audio)
+        switch status {
+        case .authorized:
+            DispatchQueue.main.async {
+                self.hasPermission = true
+            }
+        case .notDetermined:
+            requestMicrophonePermission()
+        case .denied, .restricted:
+            DispatchQueue.main.async {
+                self.hasPermission = false
+            }
+        @unknown default:
+            DispatchQueue.main.async {
+                self.hasPermission = false
+            }
         }
         #endif
     }
@@ -205,5 +241,4 @@ enum AudioRecorderError: LocalizedError {
         }
     }
 }
-
 

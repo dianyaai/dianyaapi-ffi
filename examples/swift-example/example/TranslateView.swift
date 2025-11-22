@@ -1,6 +1,9 @@
 //
 //  TranslateView.swift
-//  example (macOS)
+//  example
+//
+//  Created by Jesse on 2025/11/19.
+//  支持 iOS 和 macOS 的统一翻译视图
 //
 
 import SwiftUI
@@ -8,18 +11,19 @@ import SwiftUI
 struct TranslateView: View {
     @State private var inputText: String = ""
     @State private var selectedLanguage: Language = .englishUS
-    @State private var isTranslating = false
+    @State private var isTranslating: Bool = false
     @State private var translationResult: String = ""
     @State private var statusMessage: String = ""
     @State private var errorMessage: String = ""
     
+    // Token from config
     private let token = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyXzgzZTk5Y2YyIiwiZXhwIjoxNzY1MzU5Mjc4Ljk0ODk5fQ.JVL2o7u2IC-LhqFvSAmfE9oGVmnL7R4vfnxm_JA0V5k"
     
     private var api: TranscribeApi {
         TranscribeApi(token: token)
     }
     
-    private let languages: [(Language, String)] = [
+    let languages: [(Language, String)] = [
         (.chineseSimplified, "中文简体"),
         (.englishUS, "English"),
         (.japanese, "日本語"),
@@ -29,36 +33,43 @@ struct TranslateView: View {
     ]
     
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 20) {
             Text("翻译接口测试")
-                .font(.system(size: 28, weight: .bold))
-                .padding(.top, 12)
+                .font(.largeTitle)
+                .fontWeight(.bold)
+                .padding(.top)
             
-            VStack(alignment: .leading, spacing: 6) {
-                Text("输入文本")
+            // 输入框
+            VStack(alignment: .leading, spacing: 8) {
+                Text("输入文本:")
                     .font(.headline)
                 TextEditor(text: $inputText)
-                    .frame(minHeight: 140)
+                    .frame(height: 150)
                     .border(Color.gray.opacity(0.3), width: 1)
                     .cornerRadius(8)
             }
+            .padding(.horizontal)
             
-            VStack(alignment: .leading, spacing: 6) {
-                Text("目标语言")
+            // 目标语言选择
+            VStack(alignment: .leading, spacing: 8) {
+                Text("目标语言:")
                     .font(.headline)
                 Picker("目标语言", selection: $selectedLanguage) {
-                    ForEach(languages, id: \.0) { lang, title in
-                        Text(title).tag(lang)
+                    ForEach(languages, id: \.0) { lang, name in
+                        Text(name).tag(lang)
                     }
                 }
                 .pickerStyle(.menu)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .padding(.horizontal)
             
+            // 翻译按钮
             Button(action: translate) {
                 HStack {
                     if isTranslating {
                         ProgressView()
-                            .progressViewStyle(.circular)
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
                     }
                     Text(isTranslating ? "翻译中..." : "翻译")
                         .fontWeight(.semibold)
@@ -70,22 +81,28 @@ struct TranslateView: View {
                 .cornerRadius(10)
             }
             .disabled(isTranslating || inputText.isEmpty)
+            .padding(.horizontal)
             
+            // 状态消息
             if !statusMessage.isEmpty {
                 Text(statusMessage)
                     .font(.caption)
                     .foregroundColor(.secondary)
+                    .padding(.horizontal)
             }
             
+            // 错误消息
             if !errorMessage.isEmpty {
                 Text(errorMessage)
                     .font(.caption)
                     .foregroundColor(.red)
+                    .padding(.horizontal)
             }
             
+            // 翻译结果
             if !translationResult.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("翻译结果")
+                    Text("翻译结果:")
                         .font(.headline)
                     ScrollView {
                         Text(translationResult)
@@ -94,17 +111,19 @@ struct TranslateView: View {
                             .background(Color.gray.opacity(0.1))
                             .cornerRadius(8)
                     }
-                    .frame(minHeight: 140)
+                    .frame(height: 150)
                 }
+                .padding(.horizontal)
             }
             
             Spacer()
         }
-        .padding(24)
+        .padding()
     }
     
     private func translate() {
         guard !inputText.isEmpty else { return }
+        
         isTranslating = true
         statusMessage = "正在翻译..."
         errorMessage = ""
@@ -125,8 +144,8 @@ struct TranslateView: View {
             } catch {
                 await MainActor.run {
                     isTranslating = false
-                    statusMessage = ""
                     errorMessage = "翻译失败: \(error.localizedDescription)"
+                    statusMessage = ""
                 }
             }
         }

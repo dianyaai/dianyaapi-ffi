@@ -3,6 +3,7 @@
 //  example
 //
 //  Created by Jesse on 2025/11/19.
+//  支持 iOS 和 macOS 的统一实时转写视图
 //
 
 import SwiftUI
@@ -35,11 +36,19 @@ struct TranscribeView: View {
                     .font(.headline)
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
+                        #if os(iOS)
                         Text("使用麦克风进行实时转写")
                             .font(.subheadline)
                         Text("点击开始转写后将使用系统麦克风录制音频")
                             .font(.caption)
                             .foregroundColor(.secondary)
+                        #else
+                        Text("使用 Mac 麦克风进行实时转写")
+                            .font(.subheadline)
+                        Text("基于 AVAudioEngine + AVAudioConverter 转 16kHz PCM16")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        #endif
                     }
                     Spacer()
                     Image(systemName: "mic.fill")
@@ -139,6 +148,11 @@ struct TranscribeView: View {
             Spacer()
         }
         .padding()
+        .onAppear {
+            #if os(macOS)
+            audioRecorder.ensureMicrophonePermissionStatus()
+            #endif
+        }
         .onDisappear {
             stopTranscribing()
         }
@@ -146,6 +160,14 @@ struct TranscribeView: View {
     
     private func startTranscribing() {
         print("🚀 [TranscribeView] startTranscribing() 开始")
+        
+        #if os(macOS)
+        guard audioRecorder.hasPermission else {
+            currentStatus = "❗️ 请先授予麦克风权限"
+            audioRecorder.ensureMicrophonePermissionStatus()
+            return
+        }
+        #endif
         
         isTranscribing = true
         errorMessage = ""
@@ -327,7 +349,7 @@ struct TranscribeView: View {
                 stopTranscribing()
             }
             
-                case "error":
+        case "error":
             print("❌ [TranscribeView] 收到错误消息")
             if let errorData = json["data"] {
                 let errorString = "\(errorData)"
