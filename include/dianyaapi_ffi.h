@@ -15,6 +15,7 @@ typedef enum ErrorCode {
   InvalidApiKey = 7,
   JsonError = 8,
   OtherError = 9,
+  UnknownError = -1,
 } ErrorCode;
 
 /**

@@ -1,6 +1,6 @@
-use crate::error::FfiError;
+use crate::error::{ErrorCode, FfiError};
 use common::Error;
-use std::ffi::{c_char, c_int, CStr};
+use std::ffi::{c_char, c_int, CStr, CString};
 use transcribe::transcribe::{ExportFormat, ExportType};
 use transcribe::types::{Language, ModelType};
 
@@ -60,13 +60,25 @@ pub fn parse_transcribe_export_type(s: *const c_char) -> Result<ExportType, Erro
     })
 }
 
-pub fn ffi_execute<T, F: FnOnce(T) -> Result<(), Error>>(
-    params: T,
-    error: *mut FfiError,
-    f: F,
-) -> c_int {
-    match f(params) {
-        Ok(()) => 0,
-        Err(e) => FfiError::fill_error(error, e),
+pub fn ffi_execute<F>(error: *mut FfiError, f: F) -> c_int
+where
+    F: FnOnce() -> Result<(), Error> + std::panic::UnwindSafe,
+{
+    let result = std::panic::catch_unwind(f);
+    match result {
+        Ok(Ok(())) => 0,
+        Ok(Err(e)) => FfiError::fill_error(error, e),
+        Err(_) => {
+            let code = ErrorCode::UnknownError;
+            if !error.is_null() {
+                unsafe {
+                    (*error).code = code; // Generic error
+                    let msg = CString::new("Rust panic occurred").unwrap();
+                    (*error).message = msg.into_raw();
+                }
+            }
+
+            code as c_int
+        }
     }
 }

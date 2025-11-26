@@ -36,47 +36,35 @@ pub extern "C" fn transcribe_ffi_export(
     result_len: *mut usize,
     out_error: *mut FfiError,
 ) -> c_int {
-    ffi_execute(
-        (
-            task_id,
-            export_type,
-            export_format,
-            token,
-            result_data,
-            result_len,
-        ),
-        out_error,
-        |(task_id, export_type, export_format, token, result_data, result_len)| {
-            if result_data.is_null() || result_len.is_null() {
-                return Err(Error::InvalidInput("Invalid input parameters".to_string()));
-            }
+    ffi_execute(out_error, || {
+        if result_data.is_null() || result_len.is_null() {
+            return Err(Error::InvalidInput("Invalid input parameters".to_string()));
+        }
 
-            let task_id = parse_c_str(task_id, |s| Ok(s.to_string()))?;
-            let export_type = parse_transcribe_export_type(export_type)?;
-            let export_format = parse_format_type(export_format)?;
-            let token = parse_c_str(token, |s| Ok(s.to_string()))?;
+        let task_id = parse_c_str(task_id, |s| Ok(s.to_string()))?;
+        let export_type = parse_transcribe_export_type(export_type)?;
+        let export_format = parse_format_type(export_format)?;
+        let token = parse_c_str(token, |s| Ok(s.to_string()))?;
 
-            let data =
-                get_runtime().block_on(export(&task_id, export_type, export_format, &token))?;
-            let len = data.len();
-            let buffer_size = unsafe { *result_len };
+        let data = get_runtime().block_on(export(&task_id, export_type, export_format, &token))?;
+        let len = data.len();
+        let buffer_size = unsafe { *result_len };
 
-            if len > buffer_size {
-                unsafe { *result_len = len };
-                return Err(Error::InvalidInput(format!(
-                    "Buffer too small, need {} bytes",
-                    len
-                )));
-            }
+        if len > buffer_size {
+            unsafe { *result_len = len };
+            return Err(Error::InvalidInput(format!(
+                "Buffer too small, need {} bytes",
+                len
+            )));
+        }
 
-            unsafe {
-                std::ptr::copy_nonoverlapping(data.as_ptr(), result_data, len);
-                *result_len = len;
-            }
+        unsafe {
+            std::ptr::copy_nonoverlapping(data.as_ptr(), result_data, len);
+            *result_len = len;
+        }
 
-            Ok(())
-        },
-    )
+        Ok(())
+    })
 }
 
 /// 获取转写分享链接
@@ -97,34 +85,30 @@ pub extern "C" fn transcribe_ffi_get_share_link(
     out_link: *mut FfiShareLink,
     out_error: *mut FfiError,
 ) -> c_int {
-    ffi_execute(
-        (task_id, expiration_day, token, out_link),
-        out_error,
-        |(task_id, expiration_day, token, out_link)| {
-            if out_link.is_null() {
-                return Err(Error::InvalidInput("Invalid input parameters".to_string()));
-            }
+    ffi_execute(out_error, || {
+        if out_link.is_null() {
+            return Err(Error::InvalidInput("Invalid input parameters".to_string()));
+        }
 
-            let task_id = parse_c_str(task_id, |s| Ok(s.to_string()))?;
-            let token = parse_c_str(token, |s| Ok(s.to_string()))?;
-            let expiration_opt = if expiration_day == 0 {
-                None
-            } else {
-                Some(expiration_day)
-            };
+        let task_id = parse_c_str(task_id, |s| Ok(s.to_string()))?;
+        let token = parse_c_str(token, |s| Ok(s.to_string()))?;
+        let expiration_opt = if expiration_day == 0 {
+            None
+        } else {
+            Some(expiration_day)
+        };
 
-            let link = get_runtime().block_on(get_share_link(&task_id, expiration_opt, &token))?;
-            let ffi_link = FfiShareLink::try_from(link)?;
+        let link = get_runtime().block_on(get_share_link(&task_id, expiration_opt, &token))?;
+        let ffi_link = FfiShareLink::try_from(link)?;
 
-            unsafe {
-                (*out_link).share_url = ffi_link.share_url;
-                (*out_link).expiration_day = ffi_link.expiration_day;
-                (*out_link).expired_at = ffi_link.expired_at;
-            }
+        unsafe {
+            (*out_link).share_url = ffi_link.share_url;
+            (*out_link).expiration_day = ffi_link.expiration_day;
+            (*out_link).expired_at = ffi_link.expired_at;
+        }
 
-            Ok(())
-        },
-    )
+        Ok(())
+    })
 }
 
 /// 获取转写任务状态
@@ -145,54 +129,50 @@ pub extern "C" fn transcribe_ffi_get_status(
     out_status: *mut FfiTranscribeStatus,
     out_error: *mut FfiError,
 ) -> c_int {
-    ffi_execute(
-        (task_id, share_id, token, out_status),
-        out_error,
-        |(task_id, share_id, token, out_status)| {
-            if out_status.is_null() {
-                return Err(Error::InvalidInput("Invalid input parameters".to_string()));
-            }
+    ffi_execute(out_error, || {
+        if out_status.is_null() {
+            return Err(Error::InvalidInput("Invalid input parameters".to_string()));
+        }
 
-            let task_id_opt = if task_id.is_null() {
-                None
-            } else {
-                Some(parse_c_str(task_id, |s| Ok(s.to_string()))?)
-            };
-            let share_id_opt = if share_id.is_null() {
-                None
-            } else {
-                Some(parse_c_str(share_id, |s| Ok(s.to_string()))?)
-            };
-            let token = parse_c_str(token, |s| Ok(s.to_string()))?;
+        let task_id_opt = if task_id.is_null() {
+            None
+        } else {
+            Some(parse_c_str(task_id, |s| Ok(s.to_string()))?)
+        };
+        let share_id_opt = if share_id.is_null() {
+            None
+        } else {
+            Some(parse_c_str(share_id, |s| Ok(s.to_string()))?)
+        };
+        let token = parse_c_str(token, |s| Ok(s.to_string()))?;
 
-            let status_response = get_runtime().block_on(status(
-                task_id_opt.as_deref(),
-                share_id_opt.as_deref(),
-                &token,
-            ))?;
+        let status_response = get_runtime().block_on(status(
+            task_id_opt.as_deref(),
+            share_id_opt.as_deref(),
+            &token,
+        ))?;
 
-            let ffi_status = FfiTranscribeStatus::try_from(status_response)?;
+        let ffi_status = FfiTranscribeStatus::try_from(status_response)?;
 
-            unsafe {
-                (*out_status).status = ffi_status.status;
-                (*out_status).overview_md = ffi_status.overview_md;
-                (*out_status).summary_md = ffi_status.summary_md;
-                (*out_status).details = ffi_status.details;
-                (*out_status).details_len = ffi_status.details_len;
-                (*out_status).message = ffi_status.message;
-                (*out_status).usage_id = ffi_status.usage_id;
-                (*out_status).task_id = ffi_status.task_id;
-                (*out_status).keywords = ffi_status.keywords;
-                (*out_status).keywords_len = ffi_status.keywords_len;
-                (*out_status).callback_history = ffi_status.callback_history;
-                (*out_status).callback_history_len = ffi_status.callback_history_len;
-                (*out_status).task_type = ffi_status.task_type;
-                (*out_status).has_task_type = ffi_status.has_task_type;
-            }
+        unsafe {
+            (*out_status).status = ffi_status.status;
+            (*out_status).overview_md = ffi_status.overview_md;
+            (*out_status).summary_md = ffi_status.summary_md;
+            (*out_status).details = ffi_status.details;
+            (*out_status).details_len = ffi_status.details_len;
+            (*out_status).message = ffi_status.message;
+            (*out_status).usage_id = ffi_status.usage_id;
+            (*out_status).task_id = ffi_status.task_id;
+            (*out_status).keywords = ffi_status.keywords;
+            (*out_status).keywords_len = ffi_status.keywords_len;
+            (*out_status).callback_history = ffi_status.callback_history;
+            (*out_status).callback_history_len = ffi_status.callback_history_len;
+            (*out_status).task_type = ffi_status.task_type;
+            (*out_status).has_task_type = ffi_status.has_task_type;
+        }
 
-            Ok(())
-        },
-    )
+        Ok(())
+    })
 }
 
 /// 创建总结任务
@@ -213,38 +193,34 @@ pub extern "C" fn transcribe_ffi_create_summary(
     out_summary: *mut FfiSummaryCreator,
     out_error: *mut FfiError,
 ) -> c_int {
-    ffi_execute(
-        (utterances, utterances_len, token, out_summary),
-        out_error,
-        |(utterances, utterances_len, token, out_summary)| {
-            if utterances.is_null() || utterances_len == 0 || out_summary.is_null() {
-                return Err(Error::InvalidInput("Invalid input parameters".to_string()));
-            }
+    ffi_execute(out_error, || {
+        if utterances.is_null() || utterances_len == 0 || out_summary.is_null() {
+            return Err(Error::InvalidInput("Invalid input parameters".to_string()));
+        }
 
-            let token = parse_c_str(token, |s| Ok(s.to_string()))?;
+        let token = parse_c_str(token, |s| Ok(s.to_string()))?;
 
-            let utterances: Vec<Utterance> = unsafe {
-                std::slice::from_raw_parts(utterances, utterances_len)
-                    .into_iter()
-                    .map(|u| Utterance {
-                        start_time: u.start_time,
-                        end_time: u.end_time,
-                        speaker: u.speaker,
-                        text: CStr::from_ptr(u.text).to_string_lossy().to_string(),
-                    })
-                    .collect()
-            };
+        let utterances: Vec<Utterance> = unsafe {
+            std::slice::from_raw_parts(utterances, utterances_len)
+                .into_iter()
+                .map(|u| Utterance {
+                    start_time: u.start_time,
+                    end_time: u.end_time,
+                    speaker: u.speaker,
+                    text: CStr::from_ptr(u.text).to_string_lossy().to_string(),
+                })
+                .collect()
+        };
 
-            let response = get_runtime().block_on(create_summary(utterances, &token))?;
-            let ffi_summary = FfiSummaryCreator::try_from(response)?;
+        let response = get_runtime().block_on(create_summary(utterances, &token))?;
+        let ffi_summary = FfiSummaryCreator::try_from(response)?;
 
-            unsafe {
-                (*out_summary).task_id = ffi_summary.task_id;
-            }
+        unsafe {
+            (*out_summary).task_id = ffi_summary.task_id;
+        }
 
-            Ok(())
-        },
-    )
+        Ok(())
+    })
 }
 
 /// 上传音频文件进行转写
@@ -269,42 +245,26 @@ pub extern "C" fn transcribe_ffi_upload(
     out_result: *mut FfiUploadResponse,
     out_error: *mut FfiError,
 ) -> c_int {
-    ffi_execute(
-        (
-            filepath,
-            transcribe_only,
-            short_asr,
-            model,
-            token,
-            out_result,
-        ),
-        out_error,
-        |(filepath, transcribe_only, short_asr, model, token, out_result)| {
-            if out_result.is_null() {
-                return Err(Error::InvalidInput("Invalid output parameters".to_string()));
-            }
-            let filepath = parse_c_str(filepath, |s| Ok(s.to_string()))?;
-            let model = parse_model_type(model)?;
-            let token = parse_c_str(token, |s| Ok(s.to_string()))?;
+    ffi_execute(out_error, || {
+        if out_result.is_null() {
+            return Err(Error::InvalidInput("Invalid output parameters".to_string()));
+        }
+        let filepath = parse_c_str(filepath, |s| Ok(s.to_string()))?;
+        let model = parse_model_type(model)?;
+        let token = parse_c_str(token, |s| Ok(s.to_string()))?;
 
-            let result = get_runtime().block_on(upload(
-                &filepath,
-                transcribe_only,
-                short_asr,
-                model,
-                &token,
-            ))?;
+        let result =
+            get_runtime().block_on(upload(&filepath, transcribe_only, short_asr, model, &token))?;
 
-            let ffi_result = FfiUploadResponse::try_from(result)?;
-            unsafe {
-                (*out_result).is_normal = ffi_result.is_normal;
-                (*out_result).normal = ffi_result.normal;
-                (*out_result).one_sentence = ffi_result.one_sentence;
-            }
+        let ffi_result = FfiUploadResponse::try_from(result)?;
+        unsafe {
+            (*out_result).is_normal = ffi_result.is_normal;
+            (*out_result).normal = ffi_result.normal;
+            (*out_result).one_sentence = ffi_result.one_sentence;
+        }
 
-            Ok(())
-        },
-    )
+        Ok(())
+    })
 }
 
 /// 翻译文本
@@ -325,27 +285,23 @@ pub extern "C" fn transcribe_ffi_translate_text(
     out_result: *mut FfiTextTranslator,
     out_error: *mut FfiError,
 ) -> c_int {
-    ffi_execute(
-        (text, target_lang, token, out_result),
-        out_error,
-        |(text, target_lang, token, out_result)| {
-            if out_result.is_null() {
-                return Err(Error::InvalidInput("Invalid input parameters".to_string()));
-            }
+    ffi_execute(out_error, || {
+        if out_result.is_null() {
+            return Err(Error::InvalidInput("Invalid input parameters".to_string()));
+        }
 
-            let text = parse_c_str(text, |s| Ok(s.to_string()))?;
-            let lang = parse_language(target_lang)?;
-            let token = parse_c_str(token, |s| Ok(s.to_string()))?;
-            let result = get_runtime().block_on(translate_text(&text, lang, &token))?;
-            let result = FfiTextTranslator::try_from(result)?;
-            unsafe {
-                (*out_result).status = result.status;
-                (*out_result).data = result.data;
-            }
+        let text = parse_c_str(text, |s| Ok(s.to_string()))?;
+        let lang = parse_language(target_lang)?;
+        let token = parse_c_str(token, |s| Ok(s.to_string()))?;
+        let result = get_runtime().block_on(translate_text(&text, lang, &token))?;
+        let result = FfiTextTranslator::try_from(result)?;
+        unsafe {
+            (*out_result).status = result.status;
+            (*out_result).data = result.data;
+        }
 
-            Ok(())
-        },
-    )
+        Ok(())
+    })
 }
 
 /// 翻译 utterances 列表
@@ -368,40 +324,36 @@ pub extern "C" fn transcribe_ffi_translate_utterance(
     out_result: *mut FfiUtteranceTranslator,
     out_error: *mut FfiError,
 ) -> c_int {
-    ffi_execute(
-        (utterances, utterances_len, target_lang, token, out_result),
-        out_error,
-        |(utterances, utterances_len, target_lang, token, out_result)| {
-            if utterances.is_null() || utterances_len == 0 || out_result.is_null() {
-                return Err(Error::InvalidInput("Invalid input".to_string()));
-            }
+    ffi_execute(out_error, || {
+        if utterances.is_null() || utterances_len == 0 || out_result.is_null() {
+            return Err(Error::InvalidInput("Invalid input".to_string()));
+        }
 
-            let utterances: Vec<Utterance> = unsafe {
-                std::slice::from_raw_parts(utterances, utterances_len)
-                    .into_iter()
-                    .map(|u| Utterance {
-                        start_time: u.start_time,
-                        end_time: u.end_time,
-                        speaker: u.speaker,
-                        text: CStr::from_ptr(u.text).to_string_lossy().to_string(),
-                    })
-                    .collect()
-            };
+        let utterances: Vec<Utterance> = unsafe {
+            std::slice::from_raw_parts(utterances, utterances_len)
+                .into_iter()
+                .map(|u| Utterance {
+                    start_time: u.start_time,
+                    end_time: u.end_time,
+                    speaker: u.speaker,
+                    text: CStr::from_ptr(u.text).to_string_lossy().to_string(),
+                })
+                .collect()
+        };
 
-            let lang = parse_language(target_lang)?;
-            let token = parse_c_str(token, |s| Ok(s.to_string()))?;
-            let result = get_runtime().block_on(translate_utterance(utterances, lang, &token))?;
-            let result = FfiUtteranceTranslator::try_from(result)?;
-            unsafe {
-                (*out_result).status = result.status;
-                (*out_result).lang = result.lang;
-                (*out_result).details = result.details;
-                (*out_result).details_len = result.details_len;
-            }
+        let lang = parse_language(target_lang)?;
+        let token = parse_c_str(token, |s| Ok(s.to_string()))?;
+        let result = get_runtime().block_on(translate_utterance(utterances, lang, &token))?;
+        let result = FfiUtteranceTranslator::try_from(result)?;
+        unsafe {
+            (*out_result).status = result.status;
+            (*out_result).lang = result.lang;
+            (*out_result).details = result.details;
+            (*out_result).details_len = result.details_len;
+        }
 
-            Ok(())
-        },
-    )
+        Ok(())
+    })
 }
 
 /// 获取转写任务的翻译结果
@@ -422,37 +374,33 @@ pub extern "C" fn transcribe_ffi_translate_transcribe(
     out_result: *mut FfiTranscribeTranslator,
     out_error: *mut FfiError,
 ) -> c_int {
-    ffi_execute(
-        (task_id, target_lang, token, out_result),
-        out_error,
-        |(task_id, target_lang, token, out_result)| {
-            if out_result.is_null() {
-                return Err(Error::InvalidInput("out_result is null".to_string()));
-            }
+    ffi_execute(out_error, || {
+        if out_result.is_null() {
+            return Err(Error::InvalidInput("out_result is null".to_string()));
+        }
 
-            let task_id = parse_c_str(task_id, |s| Ok(s.to_string()))?;
-            let lang = parse_language(target_lang)?;
-            let token = parse_c_str(token, |s| Ok(s.to_string()))?;
-            let result = get_runtime().block_on(translate_transcribe(&task_id, lang, &token))?;
+        let task_id = parse_c_str(task_id, |s| Ok(s.to_string()))?;
+        let lang = parse_language(target_lang)?;
+        let token = parse_c_str(token, |s| Ok(s.to_string()))?;
+        let result = get_runtime().block_on(translate_transcribe(&task_id, lang, &token))?;
 
-            let result = FfiTranscribeTranslator::try_from(result)?;
-            unsafe {
-                (*out_result).task_id = result.task_id;
-                (*out_result).task_type = result.task_type;
-                (*out_result).status = result.status;
-                (*out_result).lang = result.lang;
-                (*out_result).message = result.message;
-                (*out_result).details = result.details;
-                (*out_result).details_len = result.details_len;
-                (*out_result).overview_md = result.overview_md;
-                (*out_result).summary_md = result.summary_md;
-                (*out_result).keywords = result.keywords;
-                (*out_result).keywords_len = result.keywords_len;
-            }
+        let result = FfiTranscribeTranslator::try_from(result)?;
+        unsafe {
+            (*out_result).task_id = result.task_id;
+            (*out_result).task_type = result.task_type;
+            (*out_result).status = result.status;
+            (*out_result).lang = result.lang;
+            (*out_result).message = result.message;
+            (*out_result).details = result.details;
+            (*out_result).details_len = result.details_len;
+            (*out_result).overview_md = result.overview_md;
+            (*out_result).summary_md = result.summary_md;
+            (*out_result).keywords = result.keywords;
+            (*out_result).keywords_len = result.keywords_len;
+        }
 
-            Ok(())
-        },
-    )
+        Ok(())
+    })
 }
 
 /// 处理转写任务状态回调（服务器端使用）
@@ -471,23 +419,19 @@ pub extern "C" fn transcribe_ffi_callback(
     out_response: *mut FfiCallbackResponse,
     out_error: *mut FfiError,
 ) -> c_int {
-    ffi_execute(
-        (request, token, out_response),
-        out_error,
-        |(request, token, out_response)| {
-            if request.is_null() || out_response.is_null() {
-                return Err(Error::InvalidInput("Invalid input parameters".to_string()));
-            }
+    ffi_execute(out_error, || {
+        if request.is_null() || out_response.is_null() {
+            return Err(Error::InvalidInput("Invalid input parameters".to_string()));
+        }
 
-            let token = parse_c_str(token, |s| Ok(s.to_string()))?;
-            let request = CallbackRequest::from(unsafe { &*request });
-            let result = get_runtime().block_on(callback(&request, &token))?;
-            let ffi_response = FfiCallbackResponse::try_from(result)?;
-            unsafe {
-                (*out_response).status = ffi_response.status;
-            }
+        let token = parse_c_str(token, |s| Ok(s.to_string()))?;
+        let request = CallbackRequest::from(unsafe { &*request });
+        let result = get_runtime().block_on(callback(&request, &token))?;
+        let ffi_response = FfiCallbackResponse::try_from(result)?;
+        unsafe {
+            (*out_response).status = ffi_response.status;
+        }
 
-            Ok(())
-        },
-    )
+        Ok(())
+    })
 }
